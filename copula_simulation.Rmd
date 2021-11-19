@@ -1,0 +1,89 @@
+---
+title: ''
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## 1. How copulas work
+```{r}
+library(ggplot2)
+library(magrittr)
+library(dplyr)
+```
+
+```{r}
+set.seed(3)
+m = 3
+n = 2000
+sigma = matrix(c(1,    0.4,  0.2,
+                 0.4,    1, -0.8,
+                 0.2, -0.8,    1), nrow=3)
+mu = rep(0, m)
+z = MASS::mvrnorm(n, mu, Sigma=sigma) %>% data.frame()
+
+z = MASS::mvrnorm(2000, rep(0,3), Sigma=sigma, empirical=T) %>% data.frame
+```
+
+```{r}
+cor(z)
+# psych::pairs.panels(z)
+z %<>% data.frame()
+GGally::ggpairs(z,diag=list(continuous=c('barDiag')))+theme_minimal()
+  
+```
+
+## inverse transform
+```{r}
+u = apply(z, c(1,2), pnorm) %>% as.data.frame()
+GGally::ggpairs(u,diag=list(continuous=c('barDiag')))+theme_minimal()
+
+```
+
+```{r}
+# rgl::plot3d(u,pch=20)
+```
+
+```{r}
+df = u %>% 
+  mutate(X1 = qgamma(X1, shape=2, scale=1),
+         X2 = qbeta(X2, 0.5,0.5),
+         X3 = qt(X3, df=5))
+# rgl::plot3d(df,pch=20)
+GGally::ggpairs(df,diag=list(continuous=c('barDiag')))+theme_minimal()
+```
+
+
+## Using the copula package
+```{r}
+MyCop = copula::normalCopula(param=c(0.4,0.2,-0.8), dim=3, dispstr='un')
+MyMvd = copula::mvdc(copula=MyCop, margins=c('gamma', 'beta', 't'),
+                     paramMargins=list(list(shape=2, scale=1),
+                                       list(shape1=2, shape2=1),
+                                       list(df=5)))
+Z2 = copula::rMvdc(MyMvd, 2000)
+```
+
+
+
+## A siample example of application
+```{r}
+cree = read.csv('cree_r.csv', header=F)$V2
+yahoo = read.csv('yahoo_r.csv', header=F)$V2
+df = data.frame(cbind(cree, yahoo))
+plot(df, pch='.')
+cor(df)
+GGally::ggpairs(df, diag=list(continuous=c('barDiag')))
+```
+
+```{r}
+u = VineCopula::pobs(df)[,1]
+v = VineCopula::pobs(df)[,2]
+SelectedCopula = VineCopula::BiCopSelect(u,v, familyset=NA)
+SelectedCopula
+```
+
+```{r}
+t_cop = VineCopula::tCopula(dim=2)
+```
+
